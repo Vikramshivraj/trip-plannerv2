@@ -68,22 +68,22 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-zinc-900 to-blue-950 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#f8f6f2] flex items-center justify-center px-4">
 
-      <div className="w-full max-w-md bg-white/10 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
+      <div className="w-full max-w-md bg-white border border-[#eadfd4] rounded-[2rem] p-8 shadow-[0_20px_60px_rgba(71,53,43,0.12)]">
 
         <div className="flex justify-center mb-6">
-          <div className="bg-blue-600 p-4 rounded-2xl">
+          <div className="bg-[#d84944] p-4 rounded-2xl shadow-lg shadow-[#d84944]/20">
             <FaPlaneDeparture className="text-white text-3xl" />
           </div>
         </div>
 
-        <h1 className="text-white text-4xl font-bold text-center mb-2">
-          Welcome Back
+        <h1 className="font-serif text-[#2e2725] text-4xl font-black text-center mb-2">
+          Welcome back
         </h1>
 
-        <p className="text-zinc-400 text-center mb-8">
-          Plan your next journey smarter ✈️
+        <p className="text-[#8b8077] text-center mb-8">
+          Your next saved place is waiting.
         </p>
 
         <input
@@ -93,7 +93,7 @@ const Login = () => {
           placeholder="Enter Email"
           onChange={handleChange}
           autoComplete="email"
-          className="w-full p-4 rounded-xl bg-zinc-900/80 border border-zinc-700 text-white outline-none mb-4"
+          className="w-full p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none mb-4 focus:border-[#d84944]"
         />
 
         <input
@@ -103,22 +103,22 @@ const Login = () => {
           placeholder="Enter Password"
           onChange={handleChange}
           autoComplete="current-password"
-          className="w-full p-4 rounded-xl bg-zinc-900/80 border border-zinc-700 text-white outline-none mb-6"
+          className="w-full p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none mb-6 focus:border-[#d84944]"
         />
 
         <button
           onClick={handleLogin}
-          className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:scale-[1.02] transition-all text-white p-4 rounded-xl font-semibold shadow-lg"
+          className="w-full bg-[#2e2725] hover:bg-[#443b37] hover:-translate-y-0.5 transition-all text-white p-4 rounded-full font-bold shadow-lg"
         >
           Login
         </button>
 
-        <p className="text-zinc-400 text-center mt-6">
+        <p className="text-[#8b8077] text-center mt-6">
           Don’t have an account?
 
           <Link
             to="/register"
-            className="text-blue-400 ml-1 hover:underline"
+            className="text-[#d84944] ml-1 font-bold hover:underline"
           >
             Register
           </Link>

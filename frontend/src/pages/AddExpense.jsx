@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import API from "../api/api";
+import AppSidebar from "../components/AppSidebar";
 
 const AddExpense = () => {
 
   const [trips, setTrips] = useState([]);
+  const navigate = useNavigate();
 
   const [selectedTrip, setSelectedTrip] = useState(null);
 
@@ -14,13 +17,7 @@ const AddExpense = () => {
     expense_date: "",
   });
 
-  useEffect(() => {
-
-    fetchTrips();
-
-  }, []);
-
-  const fetchTrips = async () => {
+  const fetchTrips = useCallback(async () => {
 
     try {
 
@@ -43,7 +40,11 @@ const AddExpense = () => {
 
     }
 
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchTrips();
+  }, [fetchTrips]);
 
   const handleChange = (e) => {
 
@@ -84,6 +85,23 @@ const AddExpense = () => {
 
         return;
 
+      }
+
+      if (!formData.category) {
+        alert("Please select an expense category");
+        return;
+      }
+
+      const amount = Number(formData.amount);
+
+      if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) {
+        alert("Enter a valid positive expense amount");
+        return;
+      }
+
+      if (!formData.expense_date) {
+        alert("Please select an expense date");
+        return;
       }
 
       const startDate = new Date(selectedTrip.start_date)
@@ -130,6 +148,8 @@ const AddExpense = () => {
 
       setSelectedTrip(null);
 
+      navigate("/dashboard");
+
     } catch (error) {
 
       console.log(error);
@@ -145,16 +165,19 @@ const AddExpense = () => {
 
   return (
 
-    <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-zinc-900 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#f8f6f2] md:flex">
+      <AppSidebar />
+      <main className="flex flex-1 items-center justify-center p-6 md:p-10">
 
-      <div className="w-full max-w-2xl bg-white/10 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
+      <div className="w-full max-w-2xl bg-white border border-[#eadfd4] rounded-[2rem] p-8 shadow-[0_20px_60px_rgba(71,53,43,0.12)]">
 
-        <h1 className="text-white text-4xl font-bold mb-2">
-          Add Expense 💸
+        <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-[#d84944]">keep the memories, track the moments</p>
+        <h1 className="font-serif text-[#2e2725] text-4xl font-black mb-2">
+          Add an expense
         </h1>
 
-        <p className="text-zinc-400 mb-8">
-          Track your travel spending smarter.
+        <p className="text-[#8b8077] mb-8">
+          Every little detail helps tell the story of your trip.
         </p>
 
         <div className="space-y-4">
@@ -164,7 +187,7 @@ const AddExpense = () => {
             name="trip_id"
             value={formData.trip_id}
             onChange={handleChange}
-            className="w-full p-4 rounded-xl bg-zinc-900 border border-zinc-700 text-white outline-none"
+            className="w-full p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
           >
 
             <option value="">
@@ -191,7 +214,7 @@ const AddExpense = () => {
             name="category"
             value={formData.category}
             onChange={handleChange}
-            className="w-full p-4 rounded-xl bg-zinc-900 border border-zinc-700 text-white outline-none"
+            className="w-full p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
           >
 
             <option value="">
@@ -226,8 +249,11 @@ const AddExpense = () => {
             name="amount"
             placeholder="Enter Amount"
             value={formData.amount}
+            min="0.01"
+            max="100000000"
+            step="0.01"
             onChange={handleChange}
-            className="w-full p-4 rounded-xl bg-zinc-900 border border-zinc-700 text-white outline-none"
+            className="w-full p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
           />
 
           {/* Expense Date */}
@@ -251,12 +277,12 @@ const AddExpense = () => {
             }
             disabled={!selectedTrip}
             onChange={handleChange}
-            className="w-full p-4 rounded-xl bg-zinc-900 border border-zinc-700 text-white outline-none"
+            className="w-full p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944] disabled:opacity-50"
           />
 
           <button
             onClick={handleAddExpense}
-            className="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:scale-[1.02] transition-all text-white p-4 rounded-xl font-semibold shadow-lg"
+            className="w-full bg-[#d84944] hover:bg-[#bf3935] hover:-translate-y-0.5 transition-all text-white p-4 rounded-full font-bold shadow-lg shadow-[#d84944]/20"
           >
             Add Expense
           </button>
@@ -265,6 +291,7 @@ const AddExpense = () => {
 
       </div>
 
+      </main>
     </div>
 
   );

@@ -2,11 +2,21 @@ const jwt = require("jsonwebtoken");
 
 const verifyToken = (req, res, next) => {
   try {
-    const token = req.headers.authorization;
+    const authorization = req.headers.authorization;
+    const token = authorization?.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : authorization;
 
     if (!token) {
       return res.status(401).json({
         message: "No token provided",
+      });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is not configured");
+      return res.status(500).json({
+        message: "Server configuration error",
       });
     }
 

@@ -1,9 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import API from "../api/api";
+import AppSidebar from "../components/AppSidebar";
 
 const CreateTrip = () => {
 
   const [darkMode, setDarkMode] = useState(true);
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     trip_name: "",
@@ -123,6 +126,8 @@ const CreateTrip = () => {
         budget: "",
       });
 
+      navigate("/dashboard");
+
     } catch (error) {
       console.log(error);
       alert(error.response?.data?.message || "Trip Creation Failed");
@@ -132,19 +137,15 @@ const CreateTrip = () => {
 
   return (
 
-    <div
-      className={
-        darkMode
-          ? "min-h-screen bg-gradient-to-br from-black via-zinc-950 to-purple-950 flex items-center justify-center p-6"
-          : "min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-200 flex items-center justify-center p-6"
-      }
-    >
+    <div className="min-h-screen bg-[#f8f6f2] md:flex">
+      <AppSidebar />
+      <main className="flex flex-1 items-center justify-center p-6 md:p-10">
 
       <div
         className={
           darkMode
-            ? "w-full max-w-2xl bg-white/10 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl"
-            : "w-full max-w-2xl bg-white border border-gray-300 rounded-3xl p-8 shadow-2xl"
+            ? "w-full max-w-2xl bg-white border border-[#eadfd4] rounded-[2rem] p-8 shadow-[0_20px_60px_rgba(71,53,43,0.12)]"
+            : "w-full max-w-2xl bg-white border border-[#eadfd4] rounded-[2rem] p-8 shadow-[0_20px_60px_rgba(71,53,43,0.12)]"
         }
       >
 
@@ -152,7 +153,7 @@ const CreateTrip = () => {
 
           <button
             onClick={() => setDarkMode(!darkMode)}
-            className="bg-yellow-500 hover:bg-yellow-600 transition-all px-4 py-2 rounded-xl text-black font-semibold"
+            className="bg-[#f4e7e1] hover:bg-[#ecd5cc] transition-all px-4 py-2 rounded-full text-[#7d4a44] font-semibold"
           >
             {darkMode ? "☀️ Light" : "🌙 Dark"}
           </button>
@@ -162,15 +163,15 @@ const CreateTrip = () => {
         <h1
           className={
             darkMode
-              ? "text-white text-4xl font-bold mb-2"
-              : "text-black text-4xl font-bold mb-2"
+              ? "font-serif text-[#2e2725] text-4xl font-black mb-2"
+              : "font-serif text-[#2e2725] text-4xl font-black mb-2"
           }
         >
           Create New Trip ✈️
         </h1>
 
-        <p className="text-zinc-400 mb-8">
-          Organize your next adventure smarter.
+        <p className="text-[#8b8077] mb-8">
+          Start with a place that makes your heart skip a beat.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -185,8 +186,8 @@ const CreateTrip = () => {
             onChange={handleChange}
             className={
               darkMode
-                ? "p-4 rounded-xl bg-zinc-900/80 border border-zinc-700 text-white outline-none"
-                : "p-4 rounded-xl bg-gray-100 border border-gray-300 text-black outline-none"
+                ? "p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
+                : "p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
             }
           />
 
@@ -199,8 +200,8 @@ const CreateTrip = () => {
             onChange={handleChange}
             className={
               darkMode
-                ? "p-4 rounded-xl bg-zinc-900/80 border border-zinc-700 text-white outline-none"
-                : "p-4 rounded-xl bg-gray-100 border border-gray-300 text-black outline-none"
+                ? "p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
+                : "p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
             }
           />
 
@@ -213,8 +214,8 @@ const CreateTrip = () => {
             onChange={handleChange}
             className={
               darkMode
-                ? "p-4 rounded-xl bg-zinc-900/80 border border-zinc-700 text-white outline-none"
-                : "p-4 rounded-xl bg-gray-100 border border-gray-300 text-black outline-none"
+                ? "p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
+                : "p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
             }
           />
 
@@ -227,8 +228,8 @@ const CreateTrip = () => {
             onChange={handleChange}
             className={
               darkMode
-                ? "p-4 rounded-xl bg-zinc-900/80 border border-zinc-700 text-white outline-none"
-                : "p-4 rounded-xl bg-gray-100 border border-gray-300 text-black outline-none"
+                ? "p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
+                : "p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
             }
           />
 
@@ -242,8 +243,8 @@ const CreateTrip = () => {
             onChange={handleChange}
             className={
               darkMode
-                ? "md:col-span-2 p-4 rounded-xl bg-zinc-900/80 border border-zinc-700 text-white outline-none"
-                : "md:col-span-2 p-4 rounded-xl bg-gray-100 border border-gray-300 text-black outline-none"
+                ? "md:col-span-2 p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
+                : "md:col-span-2 p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
             }
           />
 
@@ -251,13 +252,14 @@ const CreateTrip = () => {
 
         <button
           onClick={handleCreateTrip}
-          className="w-full mt-8 bg-gradient-to-r from-purple-600 to-pink-500 hover:scale-[1.02] transition-all text-white p-4 rounded-xl font-semibold shadow-lg"
+          className="w-full mt-8 bg-[#d84944] hover:bg-[#bf3935] hover:-translate-y-0.5 transition-all text-white p-4 rounded-full font-bold shadow-lg shadow-[#d84944]/20"
         >
           Create Trip
         </button>
 
       </div>
 
+      </main>
     </div>
 
   );
