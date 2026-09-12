@@ -48,7 +48,7 @@ const AIChatAssistant = () => {
           <div className="flex items-center justify-between border-b border-zinc-800 bg-gradient-to-r from-violet-700 to-blue-600 p-4">
             <div className="flex items-center gap-3">
               <div className="rounded-xl bg-white/15 p-2"><FaRobot /></div>
-              <div><h3 className="font-bold">AI Travel Assistant</h3><p className="text-xs text-white/75">Powered by Gemini</p></div>
+              <div><h3 className="font-bold">AI Travel Assistant</h3><p className="text-xs text-white/75">Powered by LangChain AI (RAG)</p></div>
             </div>
             <button onClick={() => setOpen(false)} className="rounded-lg p-2 hover:bg-white/10" aria-label="Close chat"><FaTimes /></button>
           </div>

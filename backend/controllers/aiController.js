@@ -1,6 +1,9 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { ChatGoogleGenerativeAI } = require("@langchain/google-genai");
+const { PromptTemplate } = require("@langchain/core/prompts");
+const fs = require("fs");
+const path = require("path");
+const db = require("../config/db");
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const MAX_TRIP_DAYS = 30;
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_HISTORY_ITEM_LENGTH = 2000;
@@ -36,34 +39,30 @@ const validateAITripInput = ({ destination, budget, days, travelType }) => {
   return null;
 };
 
-
 const generateTripPlan = async (req, res) => {
   try {
-    const {
-      destination,
-      budget,
-      days,
-      travelType,
-    } = req.body;
+    const { destination, budget, days, travelType } = req.body;
 
     const validationError = validateAITripInput({ destination, budget, days, travelType });
     if (validationError) {
       return res.status(400).json({ message: validationError });
     }
 
-    const model = genAI.getGenerativeModel({
-       model: "models/gemini-3.5-flash",
+    const model = new ChatGoogleGenerativeAI({
+      model: "gemini-3.5-flash",
+      maxOutputTokens: 3000,
+      apiKey: process.env.GEMINI_API_KEY,
     });
 
-    const prompt = `
+    const promptTemplate = PromptTemplate.fromTemplate(`
 You are an expert travel planner.
 
 Create a professional travel itinerary.
 
-Destination : ${destination}
-Budget : ₹${budget}
-Duration : ${days} days
-Travel Type : ${travelType}
+Destination : {destination}
+Budget : ₹{budget}
+Duration : {days} days
+Travel Type : {travelType}
 
 Return response ONLY in markdown.
 
@@ -106,45 +105,41 @@ At the very end of your response, you MUST append a valid JSON array wrapped in 
 This array should contain the top 3-5 specific geographic locations/attractions mentioned in the itinerary, with their exact approximate latitude and longitude coordinates.
 Format exactly like this:
 \`\`\`json
-[{"name": "Eiffel Tower", "lat": 48.8584, "lng": 2.2945}, {"name": "Louvre Museum", "lat": 48.8606, "lng": 2.3376}]
+[{{ "name": "Eiffel Tower", "lat": 48.8584, "lng": 2.2945 }}, {{ "name": "Louvre Museum", "lat": 48.8606, "lng": 2.3376 }}]
 \`\`\`
-`;
+`);
 
-    const result = await model.generateContent(prompt);
-    const response = result.response.text();
+    const formattedPrompt = await promptTemplate.format({
+      destination,
+      budget,
+      days,
+      travelType
+    });
+
+    const result = await model.invoke(formattedPrompt);
 
     res.json({
-      plan: response,
+      plan: result.content,
     });
 
   }  catch (error) {
-    console.log("========= GEMINI ERROR =========");
-    console.log(error.message);
-    if (error.response) console.log(error.response.data);
+    console.log("========= LANGCHAIN ERROR =========");
+    console.log(error);
     res.status(500).json({ message: "Unable to generate a trip plan right now." });
   }
 };
 
-// --- CUSTOM CHATBOT LOGIC ---
-// Simulates a custom Knowledge Base (RAG/Rule-based hybrid)
-const localKnowledgeBase = [
-  { 
-    keywords: ["refund", "cancel", "cancellation"], 
-    response: "🤖 **Custom Policy:** You can cancel your trip up to 24 hours before the start date for a full refund. Please contact support@ai-planner.com for help." 
-  },
-  { 
-    keywords: ["payment", "methods", "credit card", "upi"], 
-    response: "🤖 **Custom Policy:** We accept Visa, Mastercard, and UPI. All payments are secured via SSL." 
-  },
-  { 
-    keywords: ["company", "about us", "who are you"], 
-    response: "🤖 **Custom Info:** We are AI Travel Planner, a modern platform designed to make your travel seamless and budget-friendly using AI!" 
-  }
-];
+// Load our Knowledge Base for RAG
+const knowledgeBasePath = path.join(__dirname, "../knowledge_base.txt");
+let knowledgeBase = "";
+if (fs.existsSync(knowledgeBasePath)) {
+  knowledgeBase = fs.readFileSync(knowledgeBasePath, "utf-8");
+}
 
 const chatWithAssistant = async (req, res) => {
   try {
     const { message, history = [] } = req.body;
+    const userId = req.user.id; // From verifyToken middleware
 
     if (typeof message !== "string" || !message.trim()) {
       return res.status(400).json({ message: "Message is required" });
@@ -152,42 +147,70 @@ const chatWithAssistant = async (req, res) => {
     if (message.length > MAX_MESSAGE_LENGTH) {
       return res.status(400).json({ message: `Message must be ${MAX_MESSAGE_LENGTH} characters or fewer.` });
     }
-    
-    const userMsgLower = message.toLowerCase();
-    
-    // 1. Check Custom Knowledge Base (Rule-Based Fallback)
-    const matchedRule = localKnowledgeBase.find(kb => 
-      kb.keywords.some(kw => userMsgLower.includes(kw))
+
+    // --- RAG STEP 1: RETRIEVAL ---
+    // Fetch the user's actual trips from MySQL so the AI knows about their specific data
+    const [trips] = await db.promise().query(
+      "SELECT trip_name, destination, budget, start_date FROM trips WHERE user_id = ?",
+      [userId]
     );
 
-    if (matchedRule) {
-      // Return instant local response without calling Gemini API
-      return res.json({ reply: matchedRule.response });
+    let userTripsContext = "User has no saved trips.";
+    if (trips.length > 0) {
+      userTripsContext = trips.map(t => 
+        `- ${t.trip_name} to ${t.destination} (Budget: ₹${t.budget}, Date: ${t.start_date})`
+      ).join("\n");
     }
 
-    // 2. Fallback to Gemini (LLM Mode)
-    if (!Array.isArray(history)) {
-      return res.status(400).json({ message: "Conversation history must be an array." });
-    }
+    // --- RAG STEP 2: LANGCHAIN AUGMENTATION ---
+    const model = new ChatGoogleGenerativeAI({
+      model: "gemini-3.5-flash",
+      maxOutputTokens: 2048,
+      apiKey: process.env.GEMINI_API_KEY,
+    });
 
-    const model = genAI.getGenerativeModel({ model: "models/gemini-3.5-flash" });
     const recentHistory = history
       .slice(-8)
-      .filter((item) => item && typeof item.text === "string" && ["user", "assistant"].includes(item.role))
+      .filter((item) => item && typeof item.text === "string")
       .map((item) => `${item.role === "user" ? "User" : "Assistant"}: ${item.text.slice(0, MAX_HISTORY_ITEM_LENGTH)}`)
       .join("\n");
 
-    const prompt = `You are a concise, practical AI travel assistant inside a Travel & Expense Planner app.
-Help with itineraries, destinations, transport, hotels, food, packing, budgets and travel planning.
-Use markdown when useful. Keep answers actionable. Do not invent live prices, availability, weather, or opening hours; tell the user when current information should be checked.
+    const promptTemplate = PromptTemplate.fromTemplate(`
+You are a concise, practical AI travel assistant for the AI Travel Planner app.
 
-Recent conversation:\n${recentHistory}\n\nUser: ${message}\nAssistant:`;
+--- KNOWLEDGE BASE (Company Policies) ---
+{knowledgeBase}
 
-    const result = await model.generateContent(prompt);
-    return res.json({ reply: result.response.text() });
+--- USER'S ACTUAL TRIPS (Database Context) ---
+{userTripsContext}
+
+--- INSTRUCTIONS ---
+Help the user with itineraries, destinations, budgets, and their specific trips.
+If they ask about policies (refunds, baggage, etc), use the KNOWLEDGE BASE.
+If they ask about their own trips, use the USER'S ACTUAL TRIPS context.
+Do not invent live prices. Use markdown when useful.
+
+Recent conversation:
+{recentHistory}
+
+User: {message}
+Assistant:`);
+
+    const formattedPrompt = await promptTemplate.format({
+      knowledgeBase,
+      userTripsContext,
+      recentHistory,
+      message
+    });
+
+    // --- RAG STEP 3: GENERATION ---
+    const response = await model.invoke(formattedPrompt);
+
+    return res.json({ reply: response.content });
+
   } catch (error) {
-    console.log("========= GEMINI CHAT ERROR =========");
-    console.log(error.message);
+    console.log("========= LANGCHAIN RAG ERROR =========");
+    console.log(error);
     return res.status(500).json({ message: "AI chat is unavailable right now." });
   }
 };
