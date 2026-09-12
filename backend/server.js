@@ -27,8 +27,44 @@ app.use((error, req, res, next) => {
   return res.status(500).json({ message: "Internal server error" });
 });
 
+const http = require("http");
+const { Server } = require("socket.io");
+
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*", // Allow all origins for dev
+    methods: ["GET", "POST"]
+  }
+});
+
+// Attach socket.io to the app so controllers can use it
+app.set("io", io);
+
+// Socket.IO logic
+io.on("connection", (socket) => {
+  console.log(`User Connected: ${socket.id}`);
+
+  // When a user opens a specific trip, they join a "room" for that trip
+  socket.on("join_trip", (tripId) => {
+    const room = String(tripId);
+    socket.join(room);
+    console.log(`User ${socket.id} joined trip room: ${room}`);
+  });
+
+  // When someone adds/deletes an expense or edits an itinerary
+  socket.on("update_trip", (data) => {
+    // Broadcast to everyone else in the trip room
+    socket.to(data.tripId).emit("trip_updated", data);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("User Disconnected", socket.id);
+  });
+});
+
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

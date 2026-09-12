@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { FaArrowLeft, FaMapMarkerAlt, FaMoneyBillWave, FaPlus, FaWallet } from "react-icons/fa";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import API from "../api/api";
 import AppSidebar from "../components/AppSidebar";
+import { io } from "socket.io-client";
 
 const TripDetails = () => {
   const { id } = useParams();
@@ -31,10 +32,39 @@ const TripDetails = () => {
     }
   }, [id]);
 
+  const socketRef = useRef(null);
+  const fetchExpensesRef = useRef(fetchExpenses);
+  const fetchAnalyticsRef = useRef(fetchAnalytics);
+
+  // Keep refs up to date
+  useEffect(() => { fetchExpensesRef.current = fetchExpenses; }, [fetchExpenses]);
+  useEffect(() => { fetchAnalyticsRef.current = fetchAnalytics; }, [fetchAnalytics]);
+
+  // Initial data load
   useEffect(() => {
     fetchExpenses();
     fetchAnalytics();
-  }, [fetchAnalytics, fetchExpenses]);
+  }, [fetchExpenses, fetchAnalytics]);
+
+  // Real-time sync via WebSocket — only depends on `id`
+  useEffect(() => {
+    const socket = io(API.defaults.baseURL.replace("/api", ""));
+    socketRef.current = socket;
+
+    if (id) {
+      socket.emit("join_trip", id);
+    }
+
+    socket.on("trip_updated", () => {
+      console.log("Real-time update received!");
+      fetchExpensesRef.current();
+      fetchAnalyticsRef.current();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [id]); // Only reconnect when trip id changes
 
   const money = (value) => new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(value || 0);
 

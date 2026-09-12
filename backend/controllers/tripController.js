@@ -110,6 +110,13 @@ const addExpense = (req, res) => {
       [tripId, category, amount, req.body.expense_date],
       (insertErr) => {
         if (insertErr) return sendDatabaseError(res, insertErr);
+        
+        // Broadcast to other users in the room
+        const io = req.app.get("io");
+        if (io) {
+          io.to(String(tripId)).emit("trip_updated", { tripId: String(tripId) });
+        }
+        
         return res.status(201).json({ message: "Expense Added Successfully" });
       }
     );
@@ -129,7 +136,7 @@ const updateExpense = (req, res) => {
   }
   if (!expenseDate) return res.status(400).json({ message: "Enter a valid expense date." });
 
-  const ownershipQuery = `SELECT trips.start_date, trips.end_date FROM expenses
+  const ownershipQuery = `SELECT expenses.trip_id, trips.start_date, trips.end_date FROM expenses
     JOIN trips ON expenses.trip_id = trips.id
     WHERE expenses.id = ? AND trips.user_id = ?`;
   db.query(ownershipQuery, [expenseId, req.user.id], (err, rows) => {
@@ -145,6 +152,17 @@ const updateExpense = (req, res) => {
       [category, amount, req.body.expense_date, expenseId],
       (updateErr) => {
         if (updateErr) return sendDatabaseError(res, updateErr);
+
+        // Fetch the trip ID for broadcasting (or we could have queried it above)
+        // Since we joined expenses and trips above, we can extract the trip_id from the first row.
+        const io = req.app.get("io");
+        if (io && rows.length > 0) {
+          const tripId = rows[0].trip_id; // Wait, did I select trip_id?
+          if (tripId) {
+             io.to(String(tripId)).emit("trip_updated", { tripId: String(tripId) });
+          }
+        }
+        
         return res.status(200).json({ message: "Expense Updated Successfully" });
       }
     );

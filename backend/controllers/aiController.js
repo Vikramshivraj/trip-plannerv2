@@ -136,10 +136,85 @@ if (fs.existsSync(knowledgeBasePath)) {
   knowledgeBase = fs.readFileSync(knowledgeBasePath, "utf-8");
 }
 
+// ==========================================
+//  LANGCHAIN AI AGENT WITH LIVE TOOL CALLING
+// ==========================================
+const { DynamicTool } = require("@langchain/core/tools");
+const { HumanMessage, AIMessage, SystemMessage, ToolMessage } = require("@langchain/core/messages");
+
+// --- TOOL 1: Live Weather ---
+const weatherTool = new DynamicTool({
+  name: "get_live_weather",
+  description: "Get the current live weather for any city or destination. Input should be a city name like 'Goa' or 'Paris'.",
+  func: async (city) => {
+    try {
+      const res = await fetch(`https://wttr.in/${encodeURIComponent(city)}?format=j1`);
+      const data = await res.json();
+      const current = data.current_condition[0];
+      const forecast = data.weather.slice(0, 3).map(d => 
+        `${d.date}: ${d.mintempC}°C - ${d.maxtempC}°C, ${d.hourly[4].weatherDesc[0].value}`
+      ).join("\n");
+      return `Weather in ${city}:\nCurrent: ${current.temp_C}°C, ${current.weatherDesc[0].value}, Humidity: ${current.humidity}%, Wind: ${current.windspeedKmph} km/h\n\n3-Day Forecast:\n${forecast}`;
+    } catch (e) {
+      return `Could not fetch weather for "${city}". Please check the city name.`;
+    }
+  },
+});
+
+// --- TOOL 2: Live Currency Converter ---
+const currencyTool = new DynamicTool({
+  name: "convert_currency",
+  description: "Convert an amount from one currency to another using live exchange rates. Input format: 'AMOUNT FROM_CURRENCY TO_CURRENCY' e.g. '1000 INR USD'",
+  func: async (input) => {
+    try {
+      const parts = input.trim().split(/\s+/);
+      const amount = parseFloat(parts[0]);
+      const from = (parts[1] || "INR").toUpperCase();
+      const to = (parts[2] || "USD").toUpperCase();
+      const res = await fetch(`https://api.exchangerate-api.com/v4/latest/${from}`);
+      const data = await res.json();
+      const rate = data.rates[to];
+      if (!rate) return `Currency "${to}" not found.`;
+      const converted = (amount * rate).toFixed(2);
+      return `${amount} ${from} = ${converted} ${to} (Live rate: 1 ${from} = ${rate} ${to})`;
+    } catch (e) {
+      return "Could not fetch exchange rates. Try again later.";
+    }
+  },
+});
+
+// --- TOOL 3: User's Trip Database Lookup ---
+const createTripLookupTool = (userId) => new DynamicTool({
+  name: "lookup_user_trips",
+  description: "Look up the current user's saved trips, budgets, destinations, and expenses from the database. No input needed.",
+  func: async () => {
+    try {
+      const [trips] = await db.promise().query(
+        "SELECT trip_name, destination, budget, start_date, end_date FROM trips WHERE user_id = ?",
+        [userId]
+      );
+      if (trips.length === 0) return "User has no saved trips.";
+      
+      let result = "User's trips:\n";
+      for (const t of trips) {
+        const [expenses] = await db.promise().query(
+          "SELECT IFNULL(SUM(amount), 0) AS spent FROM expenses WHERE trip_id = (SELECT id FROM trips WHERE trip_name = ? AND user_id = ?)",
+          [t.trip_name, userId]
+        );
+        const spent = expenses[0].spent;
+        result += `- ${t.trip_name} to ${t.destination} | Budget: ₹${t.budget} | Spent: ₹${spent} | Remaining: ₹${t.budget - spent} | Dates: ${String(t.start_date).slice(0, 10)} to ${String(t.end_date).slice(0, 10)}\n`;
+      }
+      return result;
+    } catch (e) {
+      return "Could not fetch user trips from database.";
+    }
+  },
+});
+
 const chatWithAssistant = async (req, res) => {
   try {
     const { message, history = [] } = req.body;
-    const userId = req.user.id; // From verifyToken middleware
+    const userId = req.user.id;
 
     if (typeof message !== "string" || !message.trim()) {
       return res.status(400).json({ message: "Message is required" });
@@ -148,68 +223,68 @@ const chatWithAssistant = async (req, res) => {
       return res.status(400).json({ message: `Message must be ${MAX_MESSAGE_LENGTH} characters or fewer.` });
     }
 
-    // --- RAG STEP 1: RETRIEVAL ---
-    // Fetch the user's actual trips from MySQL so the AI knows about their specific data
-    const [trips] = await db.promise().query(
-      "SELECT trip_name, destination, budget, start_date FROM trips WHERE user_id = ?",
-      [userId]
-    );
+    // --- AGENT SETUP ---
+    const tools = [weatherTool, currencyTool, createTripLookupTool(userId)];
+    const toolMap = {};
+    tools.forEach(t => { toolMap[t.name] = t; });
 
-    let userTripsContext = "User has no saved trips.";
-    if (trips.length > 0) {
-      userTripsContext = trips.map(t => 
-        `- ${t.trip_name} to ${t.destination} (Budget: ₹${t.budget}, Date: ${t.start_date})`
-      ).join("\n");
-    }
-
-    // --- RAG STEP 2: LANGCHAIN AUGMENTATION ---
     const model = new ChatGoogleGenerativeAI({
       model: "gemini-3.5-flash",
       maxOutputTokens: 2048,
       apiKey: process.env.GEMINI_API_KEY,
-    });
+    }).bindTools(tools);
 
-    const recentHistory = history
+    // Build message history
+    const chatHistory = history
       .slice(-8)
       .filter((item) => item && typeof item.text === "string")
-      .map((item) => `${item.role === "user" ? "User" : "Assistant"}: ${item.text.slice(0, MAX_HISTORY_ITEM_LENGTH)}`)
-      .join("\n");
+      .map((item) => 
+        item.role === "user" 
+          ? new HumanMessage(item.text.slice(0, MAX_HISTORY_ITEM_LENGTH)) 
+          : new AIMessage(item.text.slice(0, MAX_HISTORY_ITEM_LENGTH))
+      );
 
-    const promptTemplate = PromptTemplate.fromTemplate(`
-You are a concise, practical AI travel assistant for the AI Travel Planner app.
+    const messages = [
+      new SystemMessage(`You are an intelligent AI travel assistant for the AI Travel Planner app.
+You have access to LIVE tools. Use them proactively:
+- Use get_live_weather when users ask about weather, packing, or what to wear for a destination.
+- Use convert_currency when users mention budgets in different currencies or ask about exchange rates.
+- Use lookup_user_trips when users ask about their own trips, budgets, or expenses.
 
---- KNOWLEDGE BASE (Company Policies) ---
-{knowledgeBase}
+Knowledge Base (Company Policies):
+${knowledgeBase}
 
---- USER'S ACTUAL TRIPS (Database Context) ---
-{userTripsContext}
+Be concise and helpful. Use markdown formatting.`),
+      ...chatHistory,
+      new HumanMessage(message),
+    ];
 
---- INSTRUCTIONS ---
-Help the user with itineraries, destinations, budgets, and their specific trips.
-If they ask about policies (refunds, baggage, etc), use the KNOWLEDGE BASE.
-If they ask about their own trips, use the USER'S ACTUAL TRIPS context.
-Do not invent live prices. Use markdown when useful.
+    // --- AGENTIC TOOL-CALLING LOOP ---
+    // The AI decides if it needs to call tools. If so, we execute them and feed results back.
+    let response = await model.invoke(messages);
+    let iterations = 0;
 
-Recent conversation:
-{recentHistory}
+    while (response.tool_calls && response.tool_calls.length > 0 && iterations < 3) {
+      iterations++;
+      messages.push(response); // Add the AI's tool-call decision to history
 
-User: {message}
-Assistant:`);
+      for (const toolCall of response.tool_calls) {
+        const tool = toolMap[toolCall.name];
+        if (tool) {
+          console.log(`Agent calling tool: ${toolCall.name}("${toolCall.args?.input || ""}")`);
+          const toolResult = await tool.invoke(toolCall.args?.input || "");
+          messages.push(new ToolMessage({ content: toolResult, tool_call_id: toolCall.id }));
+        }
+      }
 
-    const formattedPrompt = await promptTemplate.format({
-      knowledgeBase,
-      userTripsContext,
-      recentHistory,
-      message
-    });
-
-    // --- RAG STEP 3: GENERATION ---
-    const response = await model.invoke(formattedPrompt);
+      // Let the AI generate a final answer using the tool results
+      response = await model.invoke(messages);
+    }
 
     return res.json({ reply: response.content });
 
   } catch (error) {
-    console.log("========= LANGCHAIN RAG ERROR =========");
+    console.log("========= LANGCHAIN AGENT ERROR =========");
     console.log(error);
     return res.status(500).json({ message: "AI chat is unavailable right now." });
   }

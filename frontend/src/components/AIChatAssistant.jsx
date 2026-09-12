@@ -67,7 +67,7 @@ const AIChatAssistant = () => {
 
           {messages.length <= 1 && (
             <div className="flex gap-2 overflow-x-auto px-4 pb-2 text-xs">
-              {["Plan a 3-day Goa trip", "Help me save on travel", "Create a packing list"].map((prompt) => (
+              {["What's the weather in Goa?", "Convert 5000 INR to USD", "Show my trips & budget"].map((prompt) => (
                 <button key={prompt} onClick={() => sendMessage(prompt)} className="whitespace-nowrap rounded-full border border-zinc-700 px-3 py-2 hover:bg-zinc-800">{prompt}</button>
               ))}
             </div>
