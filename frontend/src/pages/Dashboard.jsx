@@ -101,7 +101,7 @@ const Dashboard = () => {
             <span><span className="block font-serif text-2xl font-black tracking-tight">Roamly</span><span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#a69b91]">travel journal</span></span>
           </Link>
           <div className="hidden items-center gap-2 sm:flex">
-            <Link to="/create-trip" className="inline-flex items-center gap-2 rounded-full bg-[#2e2725] px-5 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#443b37]"><FaPlus />New trip</Link>
+            {/* Header buttons removed as requested */}
           </div>
         </div>
       </header>
@@ -122,7 +122,6 @@ const Dashboard = () => {
               <h1 className="font-serif text-4xl font-black tracking-tight md:text-5xl">Save the feeling, not just the plan.</h1>
               <p className="mt-3 max-w-xl text-[#81756d]">A beautiful board for every place you want to remember.</p>
             </div>
-            <Link to="/create-trip" className="inline-flex w-fit items-center gap-2 rounded-full bg-[#d84944] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-[#d84944]/20 transition hover:-translate-y-0.5"><FaPlus />Create a pin</Link>
           </div>
 
           <div className="mb-9 grid gap-4 sm:grid-cols-3">

@@ -5,7 +5,6 @@ import AppSidebar from "../components/AppSidebar";
 
 const CreateTrip = () => {
 
-  const [darkMode, setDarkMode] = useState(true);
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -141,32 +140,9 @@ const CreateTrip = () => {
       <AppSidebar />
       <main className="flex flex-1 items-center justify-center p-6 md:p-10">
 
-      <div
-        className={
-          darkMode
-            ? "w-full max-w-2xl bg-white border border-[#eadfd4] rounded-[2rem] p-8 shadow-[0_20px_60px_rgba(71,53,43,0.12)]"
-            : "w-full max-w-2xl bg-white border border-[#eadfd4] rounded-[2rem] p-8 shadow-[0_20px_60px_rgba(71,53,43,0.12)]"
-        }
-      >
+      <div className="w-full max-w-2xl bg-white border border-[#eadfd4] rounded-[2rem] p-8 shadow-[0_20px_60px_rgba(71,53,43,0.12)]">
 
-        <div className="flex justify-end mb-4">
-
-          <button
-            onClick={() => setDarkMode(!darkMode)}
-            className="bg-[#f4e7e1] hover:bg-[#ecd5cc] transition-all px-4 py-2 rounded-full text-[#7d4a44] font-semibold"
-          >
-            {darkMode ? "☀️ Light" : "🌙 Dark"}
-          </button>
-
-        </div>
-
-        <h1
-          className={
-            darkMode
-              ? "font-serif text-[#2e2725] text-4xl font-black mb-2"
-              : "font-serif text-[#2e2725] text-4xl font-black mb-2"
-          }
-        >
+        <h1 className="font-serif text-[#2e2725] text-4xl font-black mb-2">
           Create New Trip ✈️
         </h1>
 
@@ -184,11 +160,7 @@ const CreateTrip = () => {
             minLength={2}
             maxLength={80}
             onChange={handleChange}
-            className={
-              darkMode
-                ? "p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
-                : "p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
-            }
+            className="p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
           />
 
           <input
@@ -198,11 +170,7 @@ const CreateTrip = () => {
             value={formData.destination}
             maxLength={60}
             onChange={handleChange}
-            className={
-              darkMode
-                ? "p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
-                : "p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
-            }
+            className="p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
           />
 
           <input
@@ -212,11 +180,7 @@ const CreateTrip = () => {
             min="1000-01-01"
             max="9999-12-31"
             onChange={handleChange}
-            className={
-              darkMode
-                ? "p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
-                : "p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
-            }
+            className="p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
           />
 
           <input
@@ -226,11 +190,7 @@ const CreateTrip = () => {
             min={formData.start_date || "1000-01-01"}
             max="9999-12-31"
             onChange={handleChange}
-            className={
-              darkMode
-                ? "p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
-                : "p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
-            }
+            className="p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
           />
 
           <input
@@ -241,11 +201,7 @@ const CreateTrip = () => {
             min="1"
             max="100000000"
             onChange={handleChange}
-            className={
-              darkMode
-                ? "md:col-span-2 p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
-                : "md:col-span-2 p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
-            }
+            className="md:col-span-2 p-4 rounded-2xl bg-[#faf8f5] border border-[#e7ddd3] text-[#2e2725] outline-none focus:border-[#d84944]"
           />
 
         </div>
