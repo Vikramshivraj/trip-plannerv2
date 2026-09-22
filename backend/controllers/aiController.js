@@ -1,12 +1,14 @@
+const cacheService = require("../services/cacheService");
 const { ChatGoogleGenerativeAI } = require("@langchain/google-genai");
 const { PromptTemplate } = require("@langchain/core/prompts");
 const fs = require("fs");
 const path = require("path");
 const db = require("../config/db");
 
-const MAX_TRIP_DAYS = 30;
-const MAX_MESSAGE_LENGTH = 2000;
-const MAX_HISTORY_ITEM_LENGTH = 2000;
+const MAX_DESTINATION_LENGTH = 60;
+const MAX_BUDGET_LENGTH = 15;
+const MAX_MESSAGE_LENGTH = 500;
+const MAX_HISTORY_ITEM_LENGTH = 1000;
 const DESTINATION_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ\s,.'-]{1,59}$/;
 const UNSUPPORTED_DESTINATIONS = new Set(["mars", "moon", "jupiter", "saturn", "venus", "mercury", "uranus", "neptune", "pluto"]);
 
@@ -28,8 +30,8 @@ const validateAITripInput = ({ destination, budget, days, travelType }) => {
     return "Budget must be greater than 0 and within a reasonable range.";
   }
 
-  if (!Number.isInteger(numericDays) || numericDays < 1 || numericDays > MAX_TRIP_DAYS) {
-    return `Trip duration must be between 1 and ${MAX_TRIP_DAYS} days.`;
+  if (!Number.isInteger(numericDays) || numericDays < 1 || numericDays > 30) {
+    return `Trip duration must be between 1 and 30 days.`;
   }
 
   if (!allowedTravelTypes.includes(travelType)) {
@@ -47,6 +49,19 @@ const generateTripPlan = async (req, res) => {
     if (validationError) {
       return res.status(400).json({ message: validationError });
     }
+
+    // --- CACHING STRATEGY ---
+    // Generate a unique cache key based on the core trip parameters
+    const cacheKey = `trip_plan:${destination.toLowerCase().trim()}:${days}days:${budget}:${travelType}`;
+    
+    // Check if we have this exact itinerary cached
+    const cachedPlan = await cacheService.get(cacheKey);
+    if (cachedPlan) {
+      console.log(`[CACHE HIT] Serving generated itinerary for: ${cacheKey}`);
+      return res.json({ plan: cachedPlan, source: "cache" });
+    }
+    
+    console.log(`[CACHE MISS] Generating new AI itinerary for: ${cacheKey}`);
 
     const model = new ChatGoogleGenerativeAI({
       model: "gemini-3.5-flash",
@@ -117,9 +132,13 @@ Format exactly like this:
     });
 
     const result = await model.invoke(formattedPrompt);
+    
+    // Save the generated plan to cache for 24 hours (86400 seconds)
+    await cacheService.set(cacheKey, result.content, 86400);
 
     res.json({
       plan: result.content,
+      source: "ai"
     });
 
   }  catch (error) {
