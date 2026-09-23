@@ -9,12 +9,7 @@ const {
   chatWithAssistant,
 } = require("../controllers/aiController");
 
-router.post(
-  "/generate",
-  verifyToken,
-  generateTripPlan
-);
-
+router.post("/generate", verifyToken, generateTripPlan);
 router.post("/chat", verifyToken, chatWithAssistant);
 
 module.exports = router;

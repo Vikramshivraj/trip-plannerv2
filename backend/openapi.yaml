@@ -1,0 +1,58 @@
+openapi: 3.0.0
+info:
+  title: AI Travel Planner API
+  version: 2.0.0
+  description: API documentation for the AI-Powered Intelligent Travel Management Platform
+servers:
+  - url: http://localhost:5000/api
+paths:
+  /health:
+    get:
+      summary: Health Check
+      responses:
+        '200':
+          description: OK
+  /metrics:
+    get:
+      summary: Prometheus Metrics
+      responses:
+        '200':
+          description: OK
+  /ai/generate:
+    post:
+      summary: Start background AI trip generation
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Job queued
+  /ai/jobs/{jobId}:
+    get:
+      summary: Check background job status
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Job status
+  /trips/ml-analytics/{tripId}:
+    get:
+      summary: Get ML spending prediction and anomalies
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: ML insights
+  /trips/expense/ai-categorize:
+    post:
+      summary: Categorize expense using AI
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Structured JSON category
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

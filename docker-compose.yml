@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: tripplanner-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: tripplanner
+      MYSQL_USER: tripplanner
+      MYSQL_PASSWORD: tripplanner_pass
+    ports:
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./tripplanner.sql:/docker-entrypoint-initdb.d/init.sql
+
+  redis:
+    image: redis:6.2-alpine
+    container_name: tripplanner-redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    container_name: tripplanner-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - DB_HOST=mysql
+      - DB_USER=tripplanner
+      - DB_PASSWORD=tripplanner_pass
+      - DB_NAME=tripplanner
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-supersecret123}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - mysql
+      - redis
+
+  worker:
+    build: ./backend
+    container_name: tripplanner-worker
+    command: ["node", "worker.js"]
+    environment:
+      - DB_HOST=mysql
+      - DB_USER=tripplanner
+      - DB_PASSWORD=tripplanner_pass
+      - DB_NAME=tripplanner
+      - REDIS_URL=redis://redis:6379
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - mysql
+      - redis
+
+  frontend:
+    build: ./frontend
+    container_name: tripplanner-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:5000/api
+
+volumes:
+  db_data:

@@ -38,34 +38,54 @@ const AIPlanner = () => {
   const generatePlan = async () => {
     const validationError = validateForm();
     if (validationError) return setError(validationError);
+
     try {
       setError("");
       setLoading(true);
       setPlan("");
       setLocations([]);
-      
+
       const token = localStorage.getItem("token");
-      const response = await API.post("/ai/generate", formData, { headers: { authorization: token } });
-      
-      let rawPlan = response.data.plan;
+      const response = await API.post("/ai/generate", formData, {
+        headers: { authorization: token },
+        timeout: 120000, // 2 minute timeout for AI generation
+      });
+
+      const rawPlan = response.data.plan;
+      if (!rawPlan) {
+        throw new Error("Server returned empty plan.");
+      }
+
+      // Extract map locations JSON if embedded in the markdown
       let parsedLocations = [];
-      
-      // Extract the JSON block if it exists
-      const jsonMatch = rawPlan.match(/\`\`\`json([\s\S]*?)\`\`\`/);
+      let cleanPlan = rawPlan;
+
+      const jsonMatch = rawPlan.match(/```json([\s\S]*?)```/);
       if (jsonMatch) {
         try {
           parsedLocations = JSON.parse(jsonMatch[1].trim());
-          // Remove the JSON block from the markdown plan so it doesn't show up in UI
-          rawPlan = rawPlan.replace(jsonMatch[0], "").trim();
+          cleanPlan = rawPlan.replace(jsonMatch[0], "").trim();
         } catch (e) {
           console.error("Failed to parse map locations JSON", e);
         }
       }
-      
-      setPlan(rawPlan);
+
+      setPlan(cleanPlan);
       setLocations(parsedLocations);
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Failed to generate plan");
+      console.error("AI Planner error:", requestError);
+      const serverMsg = requestError.response?.data?.message;
+      const statusCode = requestError.response?.status;
+
+      if (statusCode === 429) {
+        setError("AI rate limit reached. Please wait a minute and try again.");
+      } else if (statusCode === 503) {
+        setError("AI service is temporarily busy. Please try again in a moment.");
+      } else if (statusCode === 401) {
+        setError("Your session has expired. Please log in again.");
+      } else {
+        setError(serverMsg || requestError.message || "Failed to generate plan. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -89,7 +109,7 @@ const AIPlanner = () => {
           <section className="rounded-[2rem] bg-[#2e2725] p-7 text-white shadow-[0_20px_60px_rgba(71,53,43,0.2)] md:p-9">
             <span className="mb-6 grid h-14 w-14 place-items-center rounded-2xl bg-[#d84944] text-xl shadow-lg shadow-black/20"><FaWandMagicSparkles /></span>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-[#efaaa5]">your personal guide</p>
-            <h1 className="mt-2 font-serif text-4xl font-black leading-tight">Let’s design a trip worth pinning.</h1>
+            <h1 className="mt-2 font-serif text-4xl font-black leading-tight">Let's design a trip worth pinning.</h1>
             <p className="mt-4 max-w-md text-[#c8bfba]">Give us the essentials. Your AI travel companion will shape the moments in between.</p>
 
             <div className="mt-8 space-y-4">
@@ -125,7 +145,6 @@ const AIPlanner = () => {
                   <button onClick={downloadPlan} title="Download as PDF" className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[#f5f1eb] px-4 py-2 text-sm font-bold text-[#655950] transition hover:bg-[#eadfd4]"><FaDownload />Download itinerary</button>
                 </div>
                 
-                {/* Visual Map Rendered Here */}
                 {locations.length > 0 && (
                   <div className="mb-8">
                     <h3 className="font-serif text-xl font-bold mb-2">Trip Highlights Map</h3>

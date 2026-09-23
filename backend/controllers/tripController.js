@@ -238,4 +238,55 @@ const getTripExpenses = (req, res) => {
   });
 };
 
-module.exports = { createTrip, getTrips, addExpense, updateExpense, getTripAnalytics, deleteTrip, updateTrip, getTripExpenses, getTotalExpenses };
+const { predictFinalSpending, detectAnomalies } = require("../services/mlService");
+const { ChatGoogleGenerativeAI } = require("@langchain/google-genai");
+
+const getTripMLAnalytics = async (req, res) => {
+  const tripId = parseId(req.params.tripId);
+  if (!tripId) return res.status(400).json({ message: "Invalid trip id." });
+  
+  try {
+    const [trips] = await db.promise().query("SELECT * FROM trips WHERE id = ? AND user_id = ?", [tripId, req.user.id]);
+    if (trips.length === 0) return res.status(404).json({ message: "Trip not found." });
+    
+    const [expenses] = await db.promise().query("SELECT * FROM expenses WHERE trip_id = ?", [tripId]);
+    
+    const spendingPrediction = predictFinalSpending(trips[0], expenses);
+    const anomalies = detectAnomalies(expenses);
+    
+    res.json({ spendingPrediction, anomalies });
+  } catch (error) {
+    res.status(500).json({ message: "Error generating ML analytics" });
+  }
+};
+
+const categorizeExpenseWithAI = async (req, res) => {
+  const { description, amount } = req.body;
+  if (!description || !amount) return res.status(400).json({ message: "Description and amount required." });
+  
+  try {
+    const model = new ChatGoogleGenerativeAI({
+      model: "gemini-3.5-flash",
+      temperature: 0,
+      apiKey: process.env.GEMINI_API_KEY,
+    });
+    
+    const prompt = `Extract the category and amount from this expense description.
+Description: "${description}"
+Amount: ${amount}
+Categories allowed: Hotel, Food, Transport, Shopping, Other.
+Return ONLY valid JSON in this format: {"category": "Food", "amount": 100}`;
+    
+    const response = await model.invoke(prompt);
+    let rawText = response.content.replace(/```json/g, "").replace(/```/g, "").trim();
+    const result = JSON.parse(rawText);
+    
+    if (!EXPENSE_CATEGORIES.has(result.category)) result.category = "Other";
+    
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to categorize expense." });
+  }
+};
+
+module.exports = { createTrip, getTrips, addExpense, updateExpense, getTripAnalytics, deleteTrip, updateTrip, getTripExpenses, getTotalExpenses, getTripMLAnalytics, categorizeExpenseWithAI };
