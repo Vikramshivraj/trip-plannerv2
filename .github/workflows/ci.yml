@@ -19,10 +19,10 @@ jobs:
         node-version: '20.x'
 
     - name: Install Backend Dependencies
-      run: cd backend && npm ci --legacy-peer-deps
+      run: cd backend && npm install --legacy-peer-deps
       
     - name: Install Frontend Dependencies
-      run: cd frontend && npm ci
+      run: cd frontend && npm install
       
     - name: Build Frontend
       run: cd frontend && npm run build
