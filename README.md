@@ -1,4 +1,4 @@
-::: {align="center"}
+
 # ✈️ Roamly
 
 ### AI-Powered Intelligent Travel & Expense Management Platform
@@ -750,7 +750,7 @@ The goal was not only to make the application work, but to understand
 
 ------------------------------------------------------------------------
 
-::: {align="center"}
+
 ### ✈️ Plan smarter. Spend better. Travel further.
 
 Built with React, Node.js, MySQL, Redis, LangChain, Gemini and Docker.
