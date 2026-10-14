@@ -5,7 +5,6 @@ const db = require("./config/db");
 const { ChatGoogleGenerativeAI } = require("@langchain/google-genai");
 const { PromptTemplate } = require("@langchain/core/prompts");
 const cacheService = require("./services/cacheService");
-const { initRAG } = require("./services/ragService");
 
 const redisConnection = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
   maxRetriesPerRequest: null,
@@ -35,9 +34,6 @@ const upsertJobStatus = async (jobId, userId, type, status, result = null) => {
 
 const processGenerateItinerary = async (job) => {
   const { destination, budget, days, travelType, jobId, userId } = job.data;
-
-  // Initialize RAG to use it in background
-  await initRAG();
 
   const model = new ChatGoogleGenerativeAI({
     model: "gemini-3.5-flash",
@@ -118,3 +114,5 @@ worker.on("failed", (job, err) => {
 });
 
 console.log("Worker started, listening for jobs...");
+
+

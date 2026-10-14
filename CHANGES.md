@@ -41,3 +41,13 @@ Do not commit real API keys to GitHub.
 - No new npm packages or environment variables are required.
 
 Note: format validation cannot prove every city/place exists. Production-grade destination verification should use a geocoding/Places API before AI generation.
+
+## Chatbot reliability and RAG updates
+- Bound and validate chat messages and recent history; stopped logging user message contents.
+- Added per-user rate limiting to the authenticated chat route.
+- Changed expense tool behavior to prepare a draft. A separate authenticated endpoint revalidates ownership, category, amount, and trip dates before saving, after explicit UI confirmation.
+- Hardened weather tool input, timeouts, HTTP status handling, and response-shape checks.
+- Replaced the process-local JSON embedding store with Qdrant. Knowledge chunks are embedded with Gemini, stored with source/hash metadata, and re-indexed only when the source file changes. Qdrant uses a persistent Docker volume locally and can be configured as a managed service.
+- Updated the quick prompts and architecture/setup documentation. Added a secret-free `.env.example`; Compose now requires an explicit JWT secret.
+- Chat conversations and messages are stored in MySQL with per-user ownership checks; the browser stores only the conversation ID and restores prior turns after refresh. The model receives only the latest eight turns.
+

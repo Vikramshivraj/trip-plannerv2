@@ -13,8 +13,8 @@ AI Travel Planner - Official Knowledge Base & Policies
 
 3. Airline Baggage Guidelines (General)
 - Cabin Baggage: Most domestic flights allow 1 piece up to 7 kg (dimensions 55cm x 35cm x 25cm).
-- Check-in Baggage: Standard economy domestic flights allow 1 piece up to 15 kg. 
-- Excess baggage is usually charged at ?500 per additional kg at the airport.
+- Check-in Baggage: Standard economy domestic flights allow 1 piece up to 15 kg.
+- Excess baggage is usually charged at ₹500 per additional kg at the airport. Confirm current charges with the airline.
 
 4. Emergency Support
 - Our 24/7 travel emergency helpline is +91-1800-555-0199.
@@ -23,3 +23,4 @@ AI Travel Planner - Official Knowledge Base & Policies
 5. Visa Assistance
 - We currently provide automated Visa checklists for 50+ countries.
 - We do not apply for the visa on your behalf. You must submit the application to the respective embassy.
+

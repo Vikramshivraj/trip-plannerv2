@@ -21,6 +21,14 @@ services:
     ports:
       - "6379:6379"
 
+  qdrant:
+    image: qdrant/qdrant:v1.19.2
+    container_name: tripplanner-qdrant
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
   backend:
     build: ./backend
     container_name: tripplanner-backend
@@ -32,11 +40,16 @@ services:
       - DB_PASSWORD=tripplanner_pass
       - DB_NAME=tripplanner
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET:-supersecret123}
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in the root .env file}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - QDRANT_URL=${QDRANT_URL:-http://qdrant:6333}
+      - QDRANT_API_KEY=${QDRANT_API_KEY:-}
+      - QDRANT_COLLECTION=${QDRANT_COLLECTION:-travel_knowledge}
+      - RAG_MIN_SCORE=${RAG_MIN_SCORE:-0.35}
     depends_on:
       - mysql
       - redis
+      - qdrant
 
   worker:
     build: ./backend
@@ -63,3 +76,7 @@ services:
 
 volumes:
   db_data:
+  qdrant_data:
+
+
+

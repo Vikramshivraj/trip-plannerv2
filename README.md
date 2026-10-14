@@ -28,8 +28,8 @@ designed around one idea:
 The platform combines a conventional travel-management backend with
 modern AI and infrastructure patterns:
 
--   🤖 **Agentic AI** with Gemini + LangChain
--   📚 **RAG** for grounded travel-knowledge retrieval
+-   🤖 **Tool-calling travel assistant** with Gemini + LangChain
+-   📚 **RAG** with Gemini embeddings and a persistent Qdrant vector database
 -   ⚡ **Redis caching** to reduce repeated AI calls
 -   📨 **BullMQ background processing** for asynchronous jobs
 -   🔴 **Socket.IO real-time updates** with trip-scoped rooms
@@ -85,7 +85,7 @@ React Frontend
 Express API
   ├── MySQL
   ├── Redis
-  ├── AI Agent → Gemini
+  ├── Chat tool loop → Gemini
   │          └→ RAG Knowledge Base
   ├── Socket.IO
   └── BullMQ → Redis → Worker
@@ -95,102 +95,45 @@ Express API
 
 # 🧠 AI Architecture
 
-## 1. Agentic AI Assistant
+## 1. Chat and tool calling
 
-The assistant is more than a normal chatbot.
+The app uses **React + Node.js/Express + MySQL** for the application stack. It is not currently a MERN application. The chat endpoint calls Gemini through LangChain and exposes a small set of server-side tools. Gemini selects a tool and returns structured arguments; Express validates and executes the tool, then sends the result back to Gemini for a user-facing answer. The model never gets direct database credentials.
 
-It can decide when it needs to use an application tool before producing
-an answer.
+Current chat tools:
 
-### Available capabilities
+- List the authenticated user's trips.
+- Read one owned trip's budget and expense totals.
+- Prepare an expense draft. The app saves it only after the user clicks **Confirm expense**; the confirmation endpoint rechecks ownership, category, amount, and trip dates.
+- Search the travel policy knowledge base.
+- Fetch current conditions and a short forecast from wttr.in.
 
--   Retrieve the user's trips
--   Retrieve trip details
--   Add expenses
--   Retrieve travel knowledge through RAG
--   Fetch live weather information
--   Maintain a bounded recent conversation history
+Chat turns are stored in MySQL and each conversation is owned by its authenticated user. The browser stores only the conversation ID; the backend loads the latest eight turns for model context and returns up to 50 messages when restoring the conversation. Chat requests are JWT-protected and limited to 30 per user per 15 minutes using the default in-memory limiter. Horizontal deployments need a shared limiter store (for example Redis) to enforce one limit across replicas.
 
-### Tool-calling flow
-
-``` text
-User Question
-     ↓
-Gemini / LangChain Agent
-     ↓
-Does the model need a tool?
-     ├── No → Final answer
-     │
-     └── Yes
-          ↓
-      Tool Call
-          ↓
-    Application / API
-          ↓
-      Tool Result
-          ↓
-       Gemini
-          ↓
-     Final Answer
+```text
+React chat → authenticated Express route → Gemini (LangChain)
+                                      ↕ function/tool calls
+                  MySQL trip tools / Qdrant retrieval / weather API
 ```
 
-This makes the assistant capable of **retrieving information and
-performing application actions**, instead of only generating text.
+This is a **bounded tool-calling assistant**, not an autonomous general-purpose agent. Side-effecting expense writes require an explicit UI confirmation.
 
-------------------------------------------------------------------------
+## 2. RAG with Qdrant
 
-# 📚 2. RAG --- Retrieval-Augmented Generation
+The backend reads `backend/knowledge_base.txt`, splits it into overlapping chunks, embeds each chunk with Gemini `gemini-embedding-2` (768 dimensions), and stores vectors and source metadata in Qdrant. A content hash avoids re-indexing an unchanged file. When the file changes, its old chunks are replaced. Qdrant persists locally through the `qdrant_data` Docker volume; for deployment, configure a managed Qdrant endpoint and API key.
 
-Roamly uses RAG when the assistant needs information from the
-application's travel knowledge base.
+At query time, the knowledge tool embeds the question, searches Qdrant for the nearest chunks, applies a relevance threshold, and returns the chunk text and source filename to Gemini. If there is no sufficiently relevant result or Qdrant is unavailable, the tool says so; the system prompt directs the assistant not to present an unsupported policy answer as verified.
 
-### Indexing
-
-``` text
-Knowledge Base
-      ↓
-Document Chunking
-      ↓
-Gemini Embeddings
-      ↓
-Vector Representations
-      ↓
-Stored Vector Data
+```text
+knowledge_base.txt → chunking → Gemini embeddings → Qdrant collection
+User policy question → query embedding → Qdrant top-k + threshold
+                   → source-labelled context → Gemini answer
 ```
 
-### Retrieval
+RAG reduces the need to rely on the model's general knowledge for app-specific policies. It does not guarantee correctness; the source content, retrieval threshold, and generated answer still need evaluation.
 
-``` text
-User Question
-      ↓
-Query Embedding
-      ↓
-Cosine Similarity
-      ↓
-Top Relevant Chunks
-      ↓
-Context
-      ↓
-Gemini
-      ↓
-Grounded Response
-```
+## 3. Model provider and orchestration
 
-### Why RAG?
-
-Instead of expecting the LLM to know every application-specific travel
-rule or policy, relevant information is retrieved and supplied as
-context.
-
-This provides:
-
--   More grounded responses
--   Less hallucination risk
--   Easier knowledge-base updates
--   No model retraining for every document change
-
-------------------------------------------------------------------------
-
+Gemini remains the language and embedding provider. LangChain provides message and tool-call abstractions; it does not replace the Gemini API. Application code is responsible for authorization, validation, tool execution, confirmation, and handling failures.
 # ⚡ 3. Redis Caching
 
 AI generation can be expensive and slow when the same request is
@@ -498,6 +441,7 @@ This helps catch integration and build problems before deployment.
 -   Socket.IO
 -   Redis
 -   BullMQ
+-   Qdrant (travel knowledge vector store)
 
 ### AI
 
@@ -563,7 +507,7 @@ Make sure you have:
 -   Docker Compose
 -   Git
 
-For AI functionality, you also need a Gemini API key.
+For AI chat and RAG, configure a Gemini API key and start Qdrant. See the chatbot setup notes below.
 
 ------------------------------------------------------------------------
 
@@ -576,14 +520,21 @@ cd trip-plannerv2
 
 ## 2. Configure environment
 
-Create the backend environment file using the repository's
-`.env.example`.
+Copy the repository's `.env.example` to a root `.env` file and replace both placeholder secrets. Do not commit `.env`.
+
+``` bash
+cp .env.example .env
+```
 
 At minimum, configure:
 
 ``` env
 GEMINI_API_KEY=your_gemini_api_key
-JWT_SECRET=your_strong_jwt_secret
+JWT_SECRET=your_long_random_secret
+QDRANT_URL=http://qdrant:6333
+QDRANT_API_KEY=
+QDRANT_COLLECTION=travel_knowledge
+RAG_MIN_SCORE=0.35
 ```
 
 Keep secrets out of Git.
@@ -603,6 +554,7 @@ docker compose up --build
   Swagger              http://localhost:5000/api-docs
   Prometheus metrics   http://localhost:5000/metrics
   Health               http://localhost:5000/health
+  Qdrant               http://localhost:6333 (local development; persistent qdrant_data volume)
 
 MySQL and Redis are available to the application through the Docker
 Compose network.
@@ -628,6 +580,9 @@ npm run dev
 
 Backend without Docker:
 
+Start Qdrant separately and set `QDRANT_URL=http://localhost:6333` in the backend process environment (the Compose default `http://qdrant:6333` is only reachable from containers).
+
+
 ``` bash
 cd backend
 npm install
@@ -646,7 +601,9 @@ The backend exposes REST endpoints for:
 -   Expenses
 -   Trip analytics
 -   AI itinerary generation
--   AI assistant chat
+-   AI assistant chat (`POST /api/ai/chat`)
+-   Restore a conversation (`GET /api/ai/chat/:conversationId`)
+-   Confirm an expense draft (`POST /api/ai/chat/confirm-expense`)
 -   Health checks
 -   Prometheus metrics
 
@@ -666,6 +623,10 @@ The application has strongly relational entities such as users → trips →
 expenses. MySQL provides transactions, foreign keys and reliable
 relational queries.
 
+### Why Qdrant?
+
+Qdrant stores the travel knowledge vectors and source payloads independently of the application container. The local Compose setup mounts a persistent named volume; deployments should use a secured managed Qdrant endpoint.
+
 ### Why Redis?
 
 Redis provides low-latency caching and also acts as the backend for
@@ -681,10 +642,9 @@ without keeping the HTTP request open.
 RAG allows the assistant to retrieve application-specific knowledge
 dynamically without retraining the LLM.
 
-### Why Agentic AI?
+### Why tool calling?
 
-The assistant can use tools to retrieve data and perform actions instead
-of being limited to text generation.
+Gemini can request a named tool, while the Express backend enforces authorization and validation before accessing data or preparing an action. Expense writes require a separate user confirmation.
 
 ### Why Socket.IO?
 
@@ -755,3 +715,12 @@ The goal was not only to make the application work, but to understand
 
 Built with React, Node.js, MySQL, Redis, LangChain, Gemini and Docker.
 :::
+
+
+
+
+
+
+
+
+
